@@ -1,8 +1,25 @@
 # peflocus
+In the ILCD data sets of the [PEF pilots](http://ec.europa.eu/environment/eussd/smgp/ef_pilots.htm#pef)
+elemantary flows are partly regionalized via the `location` element in inputs
+and outputs of processes or in characterization factors of LCIA method data sets.
+[openLCA](http://www.openlca.org/) has another approach for
+[regionalization](https://www.openlca.org/wp-content/uploads/2016/08/Regionalized-LCIA-in-openLCA.pdf)
+and does not support these `location` elements in process exchanges and LCIA
+factors.
 
-* Converts all `*.zip` files that are located under `zips`;  ignores files that
-    with `peflocus_`
-* 
+`peflocus` is a command line tool that maps flows in such regionalized exchanges
+and LCIA factors to new flows. It takes an ILCD zip packages, links such
+exchanges and LCIA factors to flows from a mapping file, and adds the used flows
+to that package.
+
+## Usage
+Put the `peflocus` executable next to a CSV file with the flow mappings
+`flow_mapping.csv` and a folder `zips` that contains the ILCD zip files that
+you want to convert. Then, just open a command line and run the executable. For
+each zip file in the zips folder it will then create a new zip file with a
+`peflocus_` prefix where the flow mappings are applied.
+
+## ...
 
 ```xml
 <factor>
