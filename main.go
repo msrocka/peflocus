@@ -3,9 +3,48 @@ package main
 import (
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/msrocka/ilcd"
 )
+
+func main() {
+	zips := getZips()
+	if len(zips) == 0 {
+		log.Println("No zip files found.")
+		return
+	}
+
+	log.Println("Found", len(zips), "zip files for conversion")
+	for _, name := range zips {
+		log.Println("Convert zip file", name)
+
+		sourcePath := filepath.Join("zips", name)
+		targetPath := filepath.Join("zips", "peflocus_"+name)
+		deleteExisting(targetPath)
+
+		reader, err := ilcd.NewZipReader(sourcePath)
+		if err != nil {
+			log.Fatalln("Failed to read zip", sourcePath, ":", err)
+		}
+		defer reader.Close()
+
+		writer, err := ilcd.NewZipWriter(targetPath)
+		if err != nil {
+			log.Fatalln("Failed to create zip writer for", targetPath, ":", err)
+		}
+		defer writer.Close()
+
+		err = reader.EachEntry(func(name string, data []byte) error {
+			return writer.WriteEntry(name, data)
+		})
+		if err != nil {
+			log.Fatalln("Failed to convert zip", err)
+		}
+	}
+}
 
 func getZips() []string {
 	zips, err := ioutil.ReadDir("zips")
@@ -14,7 +53,7 @@ func getZips() []string {
 	}
 
 	log.Println("Scan folder zips")
-	var paths []string
+	var names []string
 	for _, zip := range zips {
 		name := zip.Name()
 		if zip.IsDir() && !strings.HasSuffix(name, ".zip") {
@@ -25,20 +64,18 @@ func getZips() []string {
 			log.Println("ignore file", name, "(this may be overwritten)")
 			continue
 		}
-		paths = append(paths, filepath.Join("zips", name))
+		names = append(names, name)
 	}
-	return paths
+	return names
 }
 
-func main() {
-	zips := getZips()
-	if len(zips) == 0 {
-		log.Println("No zip files found.")
+func deleteExisting(file string) {
+	_, err := os.Stat(file)
+	if os.IsNotExist(err) {
 		return
 	}
-
-	log.Println("Found", len(zips), "zip files for conversion")
-	for _, path := range zips {
-		log.Println("Convert zip file", path)
+	log.Println("Delete existing file", file)
+	if err = os.Remove(file); err != nil {
+		log.Fatalln("Failed to delete existing file", file, ":", err)
 	}
 }
