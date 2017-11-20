@@ -7,17 +7,17 @@ import (
 	"github.com/msrocka/ilcd"
 )
 
-func replaceFlows(entry string, data []byte) ([]byte, error) {
+func replaceFlows(entry string, data []byte, flowMap *FlowMap) ([]byte, error) {
 	if ilcd.IsMethodPath(entry) {
-		return replaceInMethod(data)
+		return replaceInMethod(data, flowMap)
 	}
 	if ilcd.IsProcessPath(entry) {
-		return replaceInProcess(data)
+		return replaceInProcess(data, flowMap)
 	}
 	return data, nil
 }
 
-func replaceInMethod(data []byte) ([]byte, error) {
+func replaceInMethod(data []byte, flowMap *FlowMap) ([]byte, error) {
 	doc := etree.NewDocument()
 	if err := doc.ReadFromBytes(data); err != nil {
 		return nil, err
@@ -28,10 +28,13 @@ func replaceInMethod(data []byte) ([]byte, error) {
 	}
 	factors := doc.FindElements("./LCIAMethodDataSet/characterisationFactors/factor")
 	log.Println(" ... check", len(factors), "factors")
-	return data, nil
+	for _, factor := range factors {
+		flowMap.onFactor(factor)
+	}
+	return doc.WriteToBytes()
 }
 
-func replaceInProcess(data []byte) ([]byte, error) {
+func replaceInProcess(data []byte, flowMap *FlowMap) ([]byte, error) {
 
 	return data, nil
 }

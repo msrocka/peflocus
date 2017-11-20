@@ -11,6 +11,9 @@ import (
 )
 
 func main() {
+	log.SetPrefix("")
+	flowMap := readMappings()
+
 	zips := getZips()
 	if len(zips) == 0 {
 		log.Println("No zip files found.")
@@ -20,11 +23,11 @@ func main() {
 	log.Println("Found", len(zips), "zip files for conversion")
 	for _, name := range zips {
 		log.Println("Convert zip file", name)
-		runConversion(name)
+		runConversion(name, flowMap)
 	}
 }
 
-func runConversion(name string) {
+func runConversion(name string, flowMap *FlowMap) {
 	sourcePath := filepath.Join("zips", name)
 	targetPath := filepath.Join("zips", "peflocus_"+name)
 	deleteExisting(targetPath)
@@ -42,7 +45,7 @@ func runConversion(name string) {
 	defer writer.Close()
 
 	err = reader.EachEntry(func(name string, data []byte) error {
-		converted, err := replaceFlows(name, data)
+		converted, err := replaceFlows(name, data, flowMap)
 		if err != nil {
 			return err
 		}
@@ -51,6 +54,9 @@ func runConversion(name string) {
 	if err != nil {
 		log.Fatalln("Failed to convert zip", err)
 	}
+
+	// TODO: write stats
+	flowMap.reset()
 }
 
 func getZips() []string {
@@ -63,7 +69,7 @@ func getZips() []string {
 	var names []string
 	for _, zip := range zips {
 		name := zip.Name()
-		if zip.IsDir() && !strings.HasSuffix(name, ".zip") {
+		if zip.IsDir() || !strings.HasSuffix(name, ".zip") {
 			log.Println("ignore file", name)
 			continue
 		}
