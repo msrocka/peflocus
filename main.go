@@ -20,29 +20,36 @@ func main() {
 	log.Println("Found", len(zips), "zip files for conversion")
 	for _, name := range zips {
 		log.Println("Convert zip file", name)
+		runConversion(name)
+	}
+}
 
-		sourcePath := filepath.Join("zips", name)
-		targetPath := filepath.Join("zips", "peflocus_"+name)
-		deleteExisting(targetPath)
+func runConversion(name string) {
+	sourcePath := filepath.Join("zips", name)
+	targetPath := filepath.Join("zips", "peflocus_"+name)
+	deleteExisting(targetPath)
 
-		reader, err := ilcd.NewZipReader(sourcePath)
+	// create the reader and writer
+	reader, err := ilcd.NewZipReader(sourcePath)
+	if err != nil {
+		log.Fatalln("Failed to read zip", sourcePath, ":", err)
+	}
+	defer reader.Close()
+	writer, err := ilcd.NewZipWriter(targetPath)
+	if err != nil {
+		log.Fatalln("Failed to create zip writer for", targetPath, ":", err)
+	}
+	defer writer.Close()
+
+	err = reader.EachEntry(func(name string, data []byte) error {
+		converted, err := replaceFlows(name, data)
 		if err != nil {
-			log.Fatalln("Failed to read zip", sourcePath, ":", err)
+			return err
 		}
-		defer reader.Close()
-
-		writer, err := ilcd.NewZipWriter(targetPath)
-		if err != nil {
-			log.Fatalln("Failed to create zip writer for", targetPath, ":", err)
-		}
-		defer writer.Close()
-
-		err = reader.EachEntry(func(name string, data []byte) error {
-			return writer.WriteEntry(name, data)
-		})
-		if err != nil {
-			log.Fatalln("Failed to convert zip", err)
-		}
+		return writer.WriteEntry(name, converted)
+	})
+	if err != nil {
+		log.Fatalln("Failed to convert zip", err)
 	}
 }
 
