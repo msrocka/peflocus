@@ -44,7 +44,12 @@ func runConversion(name string, flowMap *FlowMap) {
 	}
 	defer writer.Close()
 
+	flowPrefix := ""
+
 	err = reader.EachEntry(func(name string, data []byte) error {
+		if flowPrefix == "" && ilcd.IsFlowPath(name) {
+			flowPrefix = strings.Split(name, "flows")[0]
+		}
 		converted, err := replaceFlows(name, data, flowMap)
 		if err != nil {
 			return err
@@ -54,6 +59,13 @@ func runConversion(name string, flowMap *FlowMap) {
 	if err != nil {
 		log.Fatalln("Failed to convert zip", err)
 	}
+
+	gen := FlowGen{
+		flowMap: flowMap,
+		prefix:  flowPrefix,
+		reader:  reader,
+		writer:  writer}
+	gen.Generate()
 
 	// TODO: write stats
 	flowMap.reset()
