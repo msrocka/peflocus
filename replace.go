@@ -29,12 +29,24 @@ func replaceInMethod(data []byte, flowMap *FlowMap) ([]byte, error) {
 	factors := doc.FindElements("./LCIAMethodDataSet/characterisationFactors/factor")
 	log.Println(" ... check", len(factors), "factors")
 	for _, factor := range factors {
-		flowMap.onFactor(factor)
+		flowMap.MapFlow(factor)
 	}
 	return doc.WriteToBytes()
 }
 
 func replaceInProcess(data []byte, flowMap *FlowMap) ([]byte, error) {
-
-	return data, nil
+	doc := etree.NewDocument()
+	if err := doc.ReadFromBytes(data); err != nil {
+		return nil, err
+	}
+	uuidElem := doc.FindElement("./processDataSet/processInformation/dataSetInformation/UUID")
+	if uuidElem != nil {
+		log.Println("Replace flows in process method", uuidElem.Text())
+	}
+	exchanges := doc.FindElements("./processDataSet/exchanges/exchange")
+	log.Println(" ... check", len(exchanges), "exchanges")
+	for _, e := range exchanges {
+		flowMap.MapFlow(e)
+	}
+	return doc.WriteToBytes()
 }

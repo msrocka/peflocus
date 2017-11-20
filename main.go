@@ -45,7 +45,6 @@ func runConversion(name string, flowMap *FlowMap) {
 	defer writer.Close()
 
 	flowPrefix := ""
-
 	err = reader.EachEntry(func(name string, data []byte) error {
 		if flowPrefix == "" && ilcd.IsFlowPath(name) {
 			flowPrefix = strings.Split(name, "flows")[0]

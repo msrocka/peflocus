@@ -59,7 +59,8 @@ func (m *FlowMap) reset() {
 	m.used = make(map[string]bool)
 }
 
-func (m *FlowMap) onFactor(e *etree.Element) {
+// MapFlow maps the flow information
+func (m *FlowMap) MapFlow(e *etree.Element) {
 	locElem := e.FindElement("./location")
 	if locElem == nil {
 		return
@@ -70,16 +71,21 @@ func (m *FlowMap) onFactor(e *etree.Element) {
 	}
 	flowRef := e.FindElement("./referenceToFlowDataSet")
 	if flowRef == nil {
-		log.Fatalln(" ... Invalid LCIA factors found")
+		log.Println(" ... ERROR: no flow reference found")
+		return
 	}
 	idAttr := flowRef.SelectAttr("refObjectId")
 	if idAttr == nil {
-		log.Fatalln(" ... Invalid LCIA factors found")
+		log.Println(" ... ERROR: no flow reference found")
+		return
 	}
 	key := getKey(location, idAttr.Value)
 	mapping := m.mappings[key]
 	if mapping == nil {
-		log.Fatalln("Missing flow mapping for", idAttr.Value, " -> ", location)
+		log.Println(" ... ERROR: Missing flow mapping for",
+			idAttr.Value, " -> ", location)
+		// TODO: generate UUID and mapping!
+		return
 	}
 	idAttr.Value = mapping.NewID
 	uriAttr := flowRef.SelectAttr("uri")

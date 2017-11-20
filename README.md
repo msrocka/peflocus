@@ -18,3 +18,19 @@
   <meanValue>-128</meanValue>
 </factor>
 ```
+
+```xml
+<exchange dataSetInternalID="1">
+  <referenceToFlowDataSet
+    type="flow data set"
+    refObjectId="e3abf13f-3bb9-4e52-b72b-9bd276625c55"
+    version="01.00.000"
+    uri="../flows/e3abf13f-3bb9-4e52-b72b-9bd276625c55">
+    <common:shortDescription xml:lang="en">1,1,1,2-Tetrachloroethane</common:shortDescription>
+  </referenceToFlowDataSet>
+	<location>PL</location>
+  <exchangeDirection>Output</exchangeDirection>
+  <meanAmount>1.0</meanAmount>
+  <resultingAmount>1.0</resultingAmount>
+</exchange>
+```
