@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/beevik/etree"
+	"github.com/msrocka/ilcd"
 )
 
 func getKey(location, uuid string) string {
@@ -31,7 +32,8 @@ type FlowMap struct {
 	used     map[string]bool
 }
 
-func readMappings() *FlowMap {
+// ReadFlowMap reads the flow mappings from the file flow_mapping.csv
+func ReadFlowMap() *FlowMap {
 	log.Println("Read flow mappings from flow_mapping.csv")
 	file, err := os.Open("flow_mapping.csv")
 	if err != nil {
@@ -55,8 +57,55 @@ func readMappings() *FlowMap {
 	return &fm
 }
 
-func (m *FlowMap) reset() {
+// ResetStats clears the mapping statistics
+func (m *FlowMap) ResetStats() {
 	m.used = make(map[string]bool)
+}
+
+// MapFlows maps the flows in the given data set if it is an LCIA method or
+// process
+func (m *FlowMap) MapFlows(zipEntry string, data []byte) ([]byte, error) {
+	if ilcd.IsMethodPath(zipEntry) {
+		return replaceInMethod(data, m)
+	}
+	if ilcd.IsProcessPath(zipEntry) {
+		return replaceInProcess(data, m)
+	}
+	return data, nil
+}
+
+func replaceInMethod(data []byte, flowMap *FlowMap) ([]byte, error) {
+	doc := etree.NewDocument()
+	if err := doc.ReadFromBytes(data); err != nil {
+		return nil, err
+	}
+	uuidElem := doc.FindElement("./LCIAMethodDataSet/LCIAMethodInformation/dataSetInformation/UUID")
+	if uuidElem != nil {
+		log.Println("Replace flows in LCIA method", uuidElem.Text())
+	}
+	factors := doc.FindElements("./LCIAMethodDataSet/characterisationFactors/factor")
+	log.Println(" ... check", len(factors), "factors")
+	for _, factor := range factors {
+		flowMap.MapFlow(factor)
+	}
+	return doc.WriteToBytes()
+}
+
+func replaceInProcess(data []byte, flowMap *FlowMap) ([]byte, error) {
+	doc := etree.NewDocument()
+	if err := doc.ReadFromBytes(data); err != nil {
+		return nil, err
+	}
+	uuidElem := doc.FindElement("./processDataSet/processInformation/dataSetInformation/UUID")
+	if uuidElem != nil {
+		log.Println("Replace flows in process", uuidElem.Text())
+	}
+	exchanges := doc.FindElements("./processDataSet/exchanges/exchange")
+	log.Println(" ... check", len(exchanges), "exchanges")
+	for _, e := range exchanges {
+		flowMap.MapFlow(e)
+	}
+	return doc.WriteToBytes()
 }
 
 // MapFlow maps the flow information

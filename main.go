@@ -12,7 +12,7 @@ import (
 
 func main() {
 	log.SetPrefix("")
-	flowMap := readMappings()
+	flowMap := ReadFlowMap()
 
 	zips := getZips()
 	if len(zips) == 0 {
@@ -47,9 +47,9 @@ func runConversion(name string, flowMap *FlowMap) {
 	flowPrefix := ""
 	err = reader.EachEntry(func(name string, data []byte) error {
 		if flowPrefix == "" && ilcd.IsFlowPath(name) {
-			flowPrefix = strings.Split(name, "flows")[0]
+			flowPrefix = strings.Split(name, "flows")[0] + "flows/"
 		}
-		converted, err := replaceFlows(name, data, flowMap)
+		converted, err := flowMap.MapFlows(name, data)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func runConversion(name string, flowMap *FlowMap) {
 	gen.Generate()
 
 	// TODO: write stats
-	flowMap.reset()
+	flowMap.ResetStats()
 }
 
 func getZips() []string {
