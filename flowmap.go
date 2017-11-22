@@ -32,17 +32,17 @@ type FlowMap struct {
 	used     map[string]bool
 }
 
-// ReadFlowMap reads the flow mappings from the file flow_mapping.csv
-func ReadFlowMap() *FlowMap {
-	log.Println("Read flow mappings from flow_mapping.csv")
-	file, err := os.Open("flow_mapping.csv")
+// ReadFlowMap reads the flow mappings from the given file.
+func ReadFlowMap(file string) *FlowMap {
+	log.Println("INFO: Read flow mappings from", file)
+	f, err := os.Open(file)
 	if err != nil {
-		log.Fatalln("Failed to read mapping file flow_mapping.csv", err)
+		log.Fatalln("ERROR: Failed to read mapping file", file, err)
 	}
-	defer file.Close()
-	rows, err := csv.NewReader(file).ReadAll()
+	defer f.Close()
+	rows, err := csv.NewReader(f).ReadAll()
 	if err != nil {
-		log.Fatalln("Failed to read mapping file flow_mapping.csv", err)
+		log.Fatalln("ERROR: Failed to read mapping file", file, err)
 	}
 	fm := FlowMap{
 		mappings: make(map[string]*FlowMapEntry),
@@ -54,6 +54,7 @@ func ReadFlowMap() *FlowMap {
 		e := FlowMapEntry{OldID: row[0], Location: row[1], NewID: row[2]}
 		fm.mappings[e.key()] = &e
 	}
+	log.Println(" ... read", len(fm.mappings), "mappings")
 	return &fm
 }
 

@@ -22,7 +22,7 @@ func DeleteExisting(file string) {
 // GetZipNames returns the names of the zip files in the given folder. It
 // excludes all zip files that start with the prefix `peflocus_`.
 func GetZipNames(folder string) []string {
-	zips, err := ioutil.ReadDir("zips")
+	zips, err := ioutil.ReadDir(folder)
 	if err != nil {
 		log.Println("ERROR: Failed to read zip files from folder", folder, err)
 		return nil
@@ -42,5 +42,6 @@ func GetZipNames(folder string) []string {
 		}
 		names = append(names, name)
 	}
+	log.Println(" ... found", len(names), "files")
 	return names
 }
