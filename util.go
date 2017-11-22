@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"github.com/msrocka/ilcd"
 )
 
 // DeleteExisting deletes the given file if it exists.
@@ -44,4 +46,15 @@ func GetZipNames(folder string) []string {
 	}
 	log.Println(" ... found", len(names), "files")
 	return names
+}
+
+// GetPathType returns the data set type of the given path.
+func GetPathType(path string) ilcd.DataSetType {
+	p := strings.ToLower(path)
+	for _, t := range ilcd.DataSetTypes() {
+		if strings.Contains(p, t.Folder()) {
+			return t
+		}
+	}
+	return ilcd.UnknownType
 }
