@@ -85,3 +85,13 @@ Thus, the command `peflocus map` is the same as:
 ```
 peflocus map -wordir zips -mapfile flow_mapping.csv
 ```
+
+## The `merge` command
+With the `merge` command you can merge multiple ILCD packages into a single file.
+As in the `map` command, you can pass the `-workdir` option to specify the
+folder where the zip files are located (the `zips` folder is again the default).
+The `merge` command will then aggregate all data sets and external documents
+into a file `peflocus_merged.zip`. External documents are identified by its
+name, XML data sets by its data set type and UUID. Thus, if there is a data set
+with the same type and UUID in multiple packages (maybe in different versions!)
+it will only be added once in the merged package.

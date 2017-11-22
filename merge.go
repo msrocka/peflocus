@@ -49,24 +49,28 @@ func (m *Merger) Run() {
 func (m *Merger) doIt(reader *ilcd.ZipReader, writer *ilcd.ZipWriter) {
 	reader.EachEntry(func(path string, data []byte) error {
 		t := GetPathType(path)
+		if t == ilcd.UnknownType {
+			log.Println("INFO: ignore", path)
+			return nil
+		}
 		if t == ilcd.ExternalDocType {
 			m.addExternalDoc(writer, path, data)
-		} else {
-			ds := m.init(t)
-			err := xml.Unmarshal(data, ds)
-			if err != nil || ds == nil {
-				log.Println("ERROR: could not load data set for", path)
-				return nil
-			}
-			p := "ILCD/" + t.Folder() + "/" + ds.UUID() + ".xml"
-			if !m.content[p] {
-				m.content[p] = true
-				err := writer.WriteEntry(p, data)
-				if err != nil {
-					log.Println("ERROR: failed to add data set", path, err)
-				} else {
-					log.Println("INFO: added data set", path)
-				}
+			return nil
+		}
+		ds := m.init(t)
+		err := xml.Unmarshal(data, ds)
+		if err != nil || ds == nil {
+			log.Println("ERROR: could not load data set for", path)
+			return nil
+		}
+		p := "ILCD/" + t.Folder() + "/" + ds.UUID() + ".xml"
+		if !m.content[p] {
+			m.content[p] = true
+			err := writer.WriteEntry(p, data)
+			if err != nil {
+				log.Println("ERROR: failed to add data set", path, err)
+			} else {
+				log.Println("INFO: added data set", p)
 			}
 		}
 		return nil

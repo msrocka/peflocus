@@ -51,9 +51,12 @@ func GetZipNames(folder string) []string {
 // GetPathType returns the data set type of the given path.
 func GetPathType(path string) ilcd.DataSetType {
 	p := strings.ToLower(path)
+	isXML := strings.HasSuffix(p, ".xml")
 	for _, t := range ilcd.DataSetTypes() {
 		if strings.Contains(p, t.Folder()) {
-			return t
+			if t == ilcd.ExternalDocType || isXML {
+				return t
+			}
 		}
 	}
 	return ilcd.UnknownType
