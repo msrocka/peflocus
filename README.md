@@ -1,6 +1,6 @@
 # peflocus
 In the ILCD data sets of the [PEF pilots](http://ec.europa.eu/environment/eussd/smgp/ef_pilots.htm#pef)
-elemantary flows are partly regionalized via the `location` element in inputs
+elementary flows are partly regionalized via the `location` element in inputs
 and outputs of processes or in characterization factors of LCIA method data sets.
 [openLCA](http://www.openlca.org/) has another approach for
 [regionalization](https://www.openlca.org/wp-content/uploads/2016/08/Regionalized-LCIA-in-openLCA.pdf)

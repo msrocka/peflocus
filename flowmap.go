@@ -66,15 +66,16 @@ func (m *FlowMap) ResetStats() {
 // process
 func (m *FlowMap) MapFlows(zipEntry string, data []byte) ([]byte, error) {
 	if ilcd.IsMethodPath(zipEntry) {
-		return replaceInMethod(data, m)
+		return m.MapMethod(data)
 	}
 	if ilcd.IsProcessPath(zipEntry) {
-		return replaceInProcess(data, m)
+		return m.MapProcess(data)
 	}
 	return data, nil
 }
 
-func replaceInMethod(data []byte, flowMap *FlowMap) ([]byte, error) {
+// MapMethod maps the flows in the given LCIA method data set.
+func (m *FlowMap) MapMethod(data []byte) ([]byte, error) {
 	doc := etree.NewDocument()
 	if err := doc.ReadFromBytes(data); err != nil {
 		return nil, err
@@ -86,12 +87,13 @@ func replaceInMethod(data []byte, flowMap *FlowMap) ([]byte, error) {
 	factors := doc.FindElements("./LCIAMethodDataSet/characterisationFactors/factor")
 	log.Println(" ... check", len(factors), "factors")
 	for _, factor := range factors {
-		flowMap.MapFlow(factor)
+		m.MapFlow(factor)
 	}
 	return doc.WriteToBytes()
 }
 
-func replaceInProcess(data []byte, flowMap *FlowMap) ([]byte, error) {
+// MapProcess maps the flows in the given process data set.
+func (m *FlowMap) MapProcess(data []byte) ([]byte, error) {
 	doc := etree.NewDocument()
 	if err := doc.ReadFromBytes(data); err != nil {
 		return nil, err
@@ -103,7 +105,7 @@ func replaceInProcess(data []byte, flowMap *FlowMap) ([]byte, error) {
 	exchanges := doc.FindElements("./processDataSet/exchanges/exchange")
 	log.Println(" ... check", len(exchanges), "exchanges")
 	for _, e := range exchanges {
-		flowMap.MapFlow(e)
+		m.MapFlow(e)
 	}
 	return doc.WriteToBytes()
 }
