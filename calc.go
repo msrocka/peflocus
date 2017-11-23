@@ -15,6 +15,64 @@ type CalcImpact struct {
 	Factors map[string]float64
 }
 
+// CalcProcess contains the process information that are used for the
+// calculation.
+type CalcProcess struct {
+	UUID     string
+	Name     string
+	Location string
+	Results  map[string]float64
+}
+
+// NewCalcProcess initializes a process with a direct LCIA result.
+func NewCalcProcess(p *ilcd.Process, impacts []*CalcImpact) *CalcProcess {
+	if p == nil || p.Info == nil {
+		return nil
+	}
+	proc := &CalcProcess{
+		UUID:    p.UUID(),
+		Name:    p.FullName("en"),
+		Results: make(map[string]float64)}
+	if p.Location != nil {
+		proc.Location = p.Location.Code
+	}
+	log.Println("INFO: Calculate direct result for process", proc.UUID)
+	for _, impact := range impacts {
+		result := 0.0
+		for _, e := range p.Exchanges {
+			if e.Flow == nil {
+				continue
+			}
+			value := e.ResultingAmount
+			if e.Direction == "Input" {
+				value = -value
+			}
+			flowID := NormKey(e.Flow.UUID)
+			location := NormKey(e.Location)
+			if location == "" {
+				factor := impact.Factors[flowID]
+				if factor != 0.0 {
+					result += (factor * value)
+				}
+			} else {
+				factor, found := impact.Factors[location+"/"+flowID]
+				if !found {
+					factor, found = impact.Factors[flowID]
+					if found {
+						log.Println(" ... WARNING: use generic LCIA factor for",
+							"regionalized exchange, flow:", flowID, "@", location)
+					}
+				}
+				if factor != 0.0 {
+					result += (factor * value)
+				}
+			}
+		}
+		proc.Results[impact.UUID] = result
+	}
+	return proc
+}
+
 // NewCalcImpact initializes a LCIA category for the calculation. It returns nil
 // if something went wrong.
 func NewCalcImpact(m *ilcd.Method) *CalcImpact {
@@ -25,7 +83,6 @@ func NewCalcImpact(m *ilcd.Method) *CalcImpact {
 	if m.Info.Name != nil {
 		name = m.Info.Name.Get("en")
 	}
-	name += "; " + m.Info.ImpactIndicator
 	if len(m.Factors) == 0 {
 		log.Println("ERROR: No LCIA factors in method", name)
 		return nil
@@ -90,16 +147,22 @@ func (c *Calculator) Run() {
 			log.Println("ERROR: Failed to read zip", name, err)
 			continue
 		}
-		impacts := c.readImpacts(reader)
+		impacts := c.impacts(reader)
 		if len(impacts) == 0 {
 			log.Println("INFO: No LCIA methods found in package",
+				name, "nothing to caluclate")
+			continue
+		}
+		procs := c.processes(reader, impacts)
+		if len(procs) == 0 {
+			log.Println("INFO: No processes found in package",
 				name, "nothing to caluclate")
 			continue
 		}
 	}
 }
 
-func (c *Calculator) readImpacts(r *ilcd.ZipReader) []*CalcImpact {
+func (c *Calculator) impacts(r *ilcd.ZipReader) []*CalcImpact {
 	var impacts []*CalcImpact
 	err := r.EachMethod(func(method *ilcd.Method) bool {
 		impact := NewCalcImpact(method)
@@ -109,8 +172,23 @@ func (c *Calculator) readImpacts(r *ilcd.ZipReader) []*CalcImpact {
 		return true
 	})
 	if err != nil {
-		log.Println("ERROR: failed to read LCIA methods", err)
-		return nil
+		log.Println("ERROR: failed to read some LCIA methods", err)
 	}
 	return impacts
+}
+
+func (c *Calculator) processes(r *ilcd.ZipReader,
+	impacts []*CalcImpact) []*CalcProcess {
+	var processes []*CalcProcess
+	err := r.EachProcess(func(p *ilcd.Process) bool {
+		proc := NewCalcProcess(p, impacts)
+		if proc != nil {
+			processes = append(processes, proc)
+		}
+		return true
+	})
+	if err != nil {
+		log.Println("ERROR: failed to read some processes", err)
+	}
+	return processes
 }
