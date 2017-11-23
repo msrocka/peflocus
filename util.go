@@ -61,3 +61,8 @@ func GetPathType(path string) ilcd.DataSetType {
 	}
 	return ilcd.UnknownType
 }
+
+// NormKey normalizes the given key.
+func NormKey(key string) string {
+	return strings.ToLower(strings.TrimSpace(key))
+}
