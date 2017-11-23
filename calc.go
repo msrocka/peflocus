@@ -21,7 +21,22 @@ type CalcProcess struct {
 	UUID     string
 	Name     string
 	Location string
+	RefFlow  *CalcExchange
 	Results  map[string]float64
+	Links    []CalcExchange
+}
+
+// CalcFlow contains the information of a flow for the calculation.
+type CalcFlow struct {
+	UUID string
+	Name string
+	Type ilcd.FlowType
+}
+
+// CalcExchange contains information of a process input or output.
+type CalcExchange struct {
+	FlowID string
+	Amount float64
 }
 
 // NewCalcProcess initializes a process with a direct LCIA result.
@@ -36,6 +51,11 @@ func NewCalcProcess(p *ilcd.Process, impacts []*CalcImpact) *CalcProcess {
 	if p.Location != nil {
 		proc.Location = p.Location.Code
 	}
+	proc.addDirectResults(p, impacts)
+	return proc
+}
+
+func (proc *CalcProcess) addDirectResults(p *ilcd.Process, impacts []*CalcImpact) {
 	log.Println("INFO: Calculate direct result for process", proc.UUID)
 	for _, impact := range impacts {
 		result := 0.0
@@ -70,7 +90,6 @@ func NewCalcProcess(p *ilcd.Process, impacts []*CalcImpact) *CalcProcess {
 		}
 		proc.Results[impact.UUID] = result
 	}
-	return proc
 }
 
 // NewCalcImpact initializes a LCIA category for the calculation. It returns nil

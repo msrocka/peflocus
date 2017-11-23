@@ -49,11 +49,11 @@ func (m *Merger) Run() {
 func (m *Merger) doIt(reader *ilcd.ZipReader, writer *ilcd.ZipWriter) {
 	reader.EachEntry(func(path string, data []byte) error {
 		t := GetPathType(path)
-		if t == ilcd.UnknownType {
+		if t == -1 {
 			log.Println("INFO: ignore", path)
 			return nil
 		}
-		if t == ilcd.ExternalDocType {
+		if t == ilcd.ExternalDoc {
 			m.addExternalDoc(writer, path, data)
 			return nil
 		}
@@ -79,7 +79,7 @@ func (m *Merger) doIt(reader *ilcd.ZipReader, writer *ilcd.ZipWriter) {
 
 func (m *Merger) addExternalDoc(writer *ilcd.ZipWriter, path string, data []byte) {
 	doc := m.docName(path)
-	p := "ILCD/" + ilcd.ExternalDocType.Folder() + "/" + doc
+	p := "ILCD/" + ilcd.ExternalDoc.Folder() + "/" + doc
 	if doc == "" || m.content[p] {
 		return
 	}
@@ -93,7 +93,7 @@ func (m *Merger) addExternalDoc(writer *ilcd.ZipWriter, path string, data []byte
 }
 
 func (m *Merger) docName(path string) string {
-	parts := strings.Split(path, ilcd.ExternalDocType.Folder())
+	parts := strings.Split(path, ilcd.ExternalDoc.Folder())
 	if len(parts) < 2 {
 		return ""
 	}
@@ -102,19 +102,19 @@ func (m *Merger) docName(path string) string {
 
 func (m *Merger) init(t ilcd.DataSetType) ilcd.DataSet {
 	switch t {
-	case ilcd.ContactType:
+	case ilcd.ContactDataSet:
 		return &ilcd.Contact{}
-	case ilcd.SourceType:
+	case ilcd.SourceDataSet:
 		return &ilcd.Source{}
-	case ilcd.UnitGroupType:
+	case ilcd.UnitGroupDataSet:
 		return &ilcd.UnitGroup{}
-	case ilcd.FlowPropertyType:
+	case ilcd.FlowPropertyDataSet:
 		return &ilcd.FlowProperty{}
-	case ilcd.FlowType:
+	case ilcd.FlowDataSet:
 		return &ilcd.Flow{}
-	case ilcd.ProcessType:
+	case ilcd.ProcessDataSet:
 		return &ilcd.Process{}
-	case ilcd.MethodType:
+	case ilcd.MethodDataSet:
 		return &ilcd.Method{}
 	default:
 		return nil

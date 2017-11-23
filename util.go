@@ -54,12 +54,12 @@ func GetPathType(path string) ilcd.DataSetType {
 	isXML := strings.HasSuffix(p, ".xml")
 	for _, t := range ilcd.DataSetTypes() {
 		if strings.Contains(p, t.Folder()) {
-			if t == ilcd.ExternalDocType || isXML {
+			if t == ilcd.ExternalDoc || isXML {
 				return t
 			}
 		}
 	}
-	return ilcd.UnknownType
+	return -1
 }
 
 // NormKey normalizes the given key.
