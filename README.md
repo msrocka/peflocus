@@ -94,4 +94,5 @@ The `merge` command will then aggregate all data sets and external documents
 into a file `peflocus_merged.zip`. External documents are identified by its
 name, XML data sets by its data set type and UUID. Thus, if there is a data set
 with the same type and UUID in multiple packages (maybe in different versions!)
-it will only be added once in the merged package.
+it will only be added once in the merged package. With the `-skipdocs 1` option,
+external documents will not be added to the result package.

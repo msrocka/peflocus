@@ -11,13 +11,18 @@ import (
 
 // Merger merges a set of ILCD zip packages into a single file.
 type Merger struct {
-	workdir string
-	content map[string]bool
+	workdir  string
+	skipDocs bool
+	content  map[string]bool
 }
 
 // NewMerger initializes a new merger from the given args.
 func NewMerger(args *Args) *Merger {
-	return &Merger{workdir: args.WorkDir, content: make(map[string]bool)}
+	m := &Merger{workdir: args.WorkDir, content: make(map[string]bool)}
+	if args.SkipDocs == "true" || args.SkipDocs == "1" {
+		m.skipDocs = true
+	}
+	return m
 }
 
 // Run executes the package merging
@@ -54,6 +59,9 @@ func (m *Merger) doIt(reader *ilcd.ZipReader, writer *ilcd.ZipWriter) {
 			return nil
 		}
 		if t == ilcd.ExternalDoc {
+			if m.skipDocs {
+				return nil
+			}
 			m.addExternalDoc(writer, path, data)
 			return nil
 		}

@@ -3,13 +3,15 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 )
 
 // Args contains the command line arguments of application.
 type Args struct {
-	Command string
-	WorkDir string
-	MapFile string
+	Command  string
+	WorkDir  string
+	MapFile  string
+	SkipDocs string
 }
 
 // ReadArgs reads the command line arguments.
@@ -29,8 +31,11 @@ func ReadArgs() *Args {
 		if i < 2 {
 			continue
 		}
-		if flag == "" {
+		if strings.HasPrefix(val, "-") {
 			flag = val
+			continue
+		}
+		if flag == "" {
 			continue
 		}
 		switch flag {
@@ -38,9 +43,10 @@ func ReadArgs() *Args {
 			args.WorkDir = val
 		case "-mapfile":
 			args.MapFile = val
-		default:
-			flag = val
+		case "-skipdocs":
+			args.SkipDocs = val
 		}
+		flag = ""
 	}
 
 	return &args
