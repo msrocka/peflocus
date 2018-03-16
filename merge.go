@@ -52,51 +52,61 @@ func (m *Merger) Run() {
 }
 
 func (m *Merger) doIt(reader *ilcd.ZipReader, writer *ilcd.ZipWriter) {
-	reader.EachEntry(func(path string, data []byte) error {
-		t := GetPathType(path)
-		if t == -1 {
-			log.Println("INFO: ignore", path)
-			return nil
+	reader.EachFile(func(zipFile *ilcd.ZipFile) bool {
+		t := zipFile.Type()
+		if t == ilcd.Asset {
+			log.Println("INFO: ignore", zipFile.Path())
+			return true
 		}
 		if t == ilcd.ExternalDoc {
 			if m.skipDocs {
-				return nil
+				return true
 			}
-			m.addExternalDoc(writer, path, data)
-			return nil
+			m.addExternalDoc(writer, zipFile)
+			return true
+		}
+
+		data, err := zipFile.Read()
+		if err != nil {
+			log.Println("ERROR: could not read zip entry", zipFile.Path(), err)
+			return true
 		}
 		ds := m.init(t)
-		err := xml.Unmarshal(data, ds)
-		if err != nil || ds == nil {
-			log.Println("ERROR: could not load data set for", path)
-			return nil
+		if err := xml.Unmarshal(data, ds); err != nil {
+			log.Println("ERROR: could not load data set", zipFile.Path(), err)
+			return true
 		}
-		p := "ILCD/" + t.Folder() + "/" + ds.UUID() + ".xml"
-		if !m.content[p] {
-			m.content[p] = true
-			err := writer.WriteEntry(p, data)
+		path := "ILCD/" + t.Folder() + "/" + ds.UUID() + ".xml"
+		if !m.content[path] {
+			m.content[path] = true
+			err := writer.Write(path, data)
 			if err != nil {
 				log.Println("ERROR: failed to add data set", path, err)
 			} else {
-				log.Println("INFO: added data set", p)
+				log.Println("INFO: added data set", path)
 			}
 		}
-		return nil
+		return true
 	})
 }
 
-func (m *Merger) addExternalDoc(writer *ilcd.ZipWriter, path string, data []byte) {
-	doc := m.docName(path)
-	p := "ILCD/" + ilcd.ExternalDoc.Folder() + "/" + doc
-	if doc == "" || m.content[p] {
+func (m *Merger) addExternalDoc(writer *ilcd.ZipWriter, zipFile *ilcd.ZipFile) {
+	doc := m.docName(zipFile.Path())
+	path := "ILCD/" + ilcd.ExternalDoc.Folder() + "/" + doc
+	if doc == "" || m.content[path] {
 		return
 	}
-	m.content[p] = true
-	err := writer.WriteEntry(p, data)
+	data, err := zipFile.Read()
+	if err != nil {
+		log.Println("ERROR: failed to read", zipFile.Path(), err)
+		return
+	}
+	err = writer.Write(path, data)
 	if err != nil {
 		log.Println("ERROR: failed to add external doc", doc, err)
 	} else {
 		log.Println("INFO: added external doc", doc)
+		m.content[path] = true
 	}
 }
 

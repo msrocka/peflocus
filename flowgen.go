@@ -23,22 +23,29 @@ func (gen *FlowGen) Generate() {
 
 	for key := range gen.flowMap.used {
 
-		e := gen.flowMap.mappings[key]
-		data, err := gen.reader.GetFlowData(e.OldID)
-		if err != nil || data == nil {
-			log.Println(" ... ERROR: flow", e.OldID,
-				"mapped and used but could not it from package", err)
+		mapEntry := gen.flowMap.mappings[key]
+
+		flowEntry := gen.reader.FindDataSet(ilcd.FlowDataSet, mapEntry.OldID)
+		if flowEntry == nil {
+			log.Println(" ... ERROR: flow", mapEntry.OldID,
+				"mapped and used but could not find it in package")
 			continue
 		}
-		data, err = gen.doIt(e, data)
+		data, err := flowEntry.Read()
 		if err != nil {
-			log.Println(" ... ERROR: Failed to create flow",
-				e.NewID, "from", e.OldID, err)
+			log.Println(" ... ERROR: Failed to read flow", flowEntry.Path(), err)
 			continue
 		}
 
-		newEntry := gen.prefix + e.NewID + ".xml"
-		if err = gen.writer.WriteEntry(newEntry, data); err != nil {
+		data, err = gen.doIt(mapEntry, data)
+		if err != nil {
+			log.Println(" ... ERROR: Failed to create flow", mapEntry.NewID,
+				"from", mapEntry.OldID, err)
+			continue
+		}
+
+		newEntry := gen.prefix + mapEntry.NewID + ".xml"
+		if err = gen.writer.Write(newEntry, data); err != nil {
 			log.Println(" ... ERROR: Failed to write new flow", newEntry, err)
 			continue
 		}

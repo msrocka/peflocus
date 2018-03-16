@@ -51,21 +51,25 @@ func (m *FlowMapper) doIt(sourcePath, targetPath string) {
 	}
 	defer writer.Close()
 
+	// map the flows in the data sets
 	flowPrefix := ""
-	err = reader.EachEntry(func(name string, data []byte) error {
-		if flowPrefix == "" && ilcd.IsFlowPath(name) {
-			flowPrefix = strings.Split(name, "flows")[0] + "flows/"
-		}
-		converted, err := m.flowMap.MapFlows(name, data)
+	reader.Map(writer, func(zipFile *ilcd.ZipFile) (string, []byte) {
+		path := zipFile.Path()
+		data, err := zipFile.Read()
 		if err != nil {
-			return err
+			log.Println("ERROR: Failed to read entry", path, err)
+			return "", nil
 		}
-		return writer.WriteEntry(name, converted)
+		if flowPrefix == "" && ilcd.IsFlowPath(path) {
+			flowPrefix = strings.Split(path, "flows")[0] + "flows/"
+		}
+		converted, err := m.flowMap.MapFlows(path, data)
+		if err != nil {
+			log.Println("ERROR: Failed to map flows in", path, err)
+			return "", nil
+		}
+		return path, converted
 	})
-	if err != nil {
-		log.Println("ERROR: Failed to convert zip", err)
-		return
-	}
 
 	gen := FlowGen{
 		flowMap: m.flowMap,
