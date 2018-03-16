@@ -188,5 +188,13 @@ func (m *FlowMap) unmapFlow(e *etree.Element) {
 	if uriAttr != nil {
 		uriAttr.Value = "../flows/" + unmapping.OldID + ".xml"
 	}
+
+	locElem := e.FindElement("./location")
+	if locElem == nil {
+		locElem = etree.NewElement("location")
+		e.InsertChild(e.FindElement("./exchangeDirection"), locElem)
+	}
+	locElem.SetText(unmapping.Location)
+
 	m.used[unmapping.NewID] = true
 }
