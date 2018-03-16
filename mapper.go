@@ -76,7 +76,7 @@ func (m *FlowMapper) doIt(sourcePath, targetPath string) {
 		prefix:  flowPrefix,
 		reader:  reader,
 		writer:  writer}
-	gen.Generate()
+	gen.Generate(true)
 
 	m.flowMap.ResetStats()
 }
