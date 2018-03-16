@@ -55,17 +55,17 @@ func (u *FlowUnmapper) doIt(sourcePath, targetPath string) {
 	// unmap the flows in the data sets
 	flowPrefix := ""
 	reader.Map(writer, func(zipFile *ilcd.ZipFile) (string, []byte) {
+		path := zipFile.Path()
+		if flowPrefix == "" && ilcd.IsFlowPath(path) {
+			flowPrefix = strings.Split(path, "flows")[0] + "flows/"
+		}
 		if zipFile.Type() == ilcd.FlowDataSet {
 			return "", nil // flows are filtered & written later
 		}
-		path := zipFile.Path()
 		data, err := zipFile.Read()
 		if err != nil {
 			log.Println("ERROR: Failed to read entry", path, err)
 			return "", nil
-		}
-		if flowPrefix == "" && ilcd.IsFlowPath(path) {
-			flowPrefix = strings.Split(path, "flows")[0] + "flows/"
 		}
 		converted, err := u.flowMap.UnmapFlows(path, data)
 		if err != nil {
