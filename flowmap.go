@@ -22,14 +22,22 @@ type FlowMapEntry struct {
 	NewID    string
 }
 
-func (e *FlowMapEntry) key() string {
+func (e *FlowMapEntry) mapKey() string {
 	return getKey(e.Location, e.OldID)
 }
 
 // FlowMap contains the flow mappings.
 type FlowMap struct {
+
+	// (location/OldID) -> map entry
 	mappings map[string]*FlowMapEntry
-	used     map[string]bool
+
+	// NewID -> map entry
+	unmappings map[string]*FlowMapEntry
+
+	// When running in map-mode: contains (location/OldID) -> bool
+	// When running in unmap-mode: contains NewID -> true
+	used map[string]bool
 }
 
 // ReadFlowMap reads the flow mappings from the given file.
@@ -45,14 +53,16 @@ func ReadFlowMap(file string) *FlowMap {
 		log.Fatalln("ERROR: Failed to read mapping file", file, err)
 	}
 	fm := FlowMap{
-		mappings: make(map[string]*FlowMapEntry),
-		used:     make(map[string]bool)}
+		mappings:   make(map[string]*FlowMapEntry),
+		unmappings: make(map[string]*FlowMapEntry),
+		used:       make(map[string]bool)}
 	for i, row := range rows {
 		if i == 0 {
 			continue
 		}
 		e := FlowMapEntry{OldID: row[0], Location: row[1], NewID: row[2]}
-		fm.mappings[e.key()] = &e
+		fm.mappings[e.mapKey()] = &e
+		fm.unmappings[e.NewID] = &e
 	}
 	log.Println(" ... read", len(fm.mappings), "mappings")
 	return &fm
@@ -67,16 +77,26 @@ func (m *FlowMap) ResetStats() {
 // process
 func (m *FlowMap) MapFlows(zipEntry string, data []byte) ([]byte, error) {
 	if ilcd.IsMethodPath(zipEntry) {
-		return m.MapMethod(data)
+		return m.forMethod(data, m.mapFlow)
 	}
 	if ilcd.IsProcessPath(zipEntry) {
-		return m.MapProcess(data)
+		return m.forProcess(data, m.mapFlow)
 	}
 	return data, nil
 }
 
-// MapMethod maps the flows in the given LCIA method data set.
-func (m *FlowMap) MapMethod(data []byte) ([]byte, error) {
+// UnmapFlows applies a reverse mapping: reasigning the old flow UUIDs.
+func (m *FlowMap) UnmapFlows(zipEntry string, data []byte) ([]byte, error) {
+	if ilcd.IsMethodPath(zipEntry) {
+		return m.forMethod(data, m.unmapFlow)
+	}
+	if ilcd.IsProcessPath(zipEntry) {
+		return m.forProcess(data, m.unmapFlow)
+	}
+	return data, nil
+}
+
+func (m *FlowMap) forMethod(data []byte, fn func(e *etree.Element)) ([]byte, error) {
 	doc := etree.NewDocument()
 	if err := doc.ReadFromBytes(data); err != nil {
 		return nil, err
@@ -88,13 +108,12 @@ func (m *FlowMap) MapMethod(data []byte) ([]byte, error) {
 	factors := doc.FindElements("./LCIAMethodDataSet/characterisationFactors/factor")
 	log.Println(" ... check", len(factors), "factors")
 	for _, factor := range factors {
-		m.MapFlow(factor)
+		m.mapFlow(factor)
 	}
 	return doc.WriteToBytes()
 }
 
-// MapProcess maps the flows in the given process data set.
-func (m *FlowMap) MapProcess(data []byte) ([]byte, error) {
+func (m *FlowMap) forProcess(data []byte, fn func(e *etree.Element)) ([]byte, error) {
 	doc := etree.NewDocument()
 	if err := doc.ReadFromBytes(data); err != nil {
 		return nil, err
@@ -106,13 +125,14 @@ func (m *FlowMap) MapProcess(data []byte) ([]byte, error) {
 	exchanges := doc.FindElements("./processDataSet/exchanges/exchange")
 	log.Println(" ... check", len(exchanges), "exchanges")
 	for _, e := range exchanges {
-		m.MapFlow(e)
+		fn(e)
 	}
 	return doc.WriteToBytes()
 }
 
-// MapFlow maps the flow information
-func (m *FlowMap) MapFlow(e *etree.Element) {
+// mapFlow assigns the new flow UUIDs from the mapping to exchanges or LCIA
+// factors with a matching pair of old flow UUID and location.
+func (m *FlowMap) mapFlow(e *etree.Element) {
 	locElem := e.FindElement("./location")
 	if locElem == nil {
 		return
@@ -136,7 +156,6 @@ func (m *FlowMap) MapFlow(e *etree.Element) {
 	if mapping == nil {
 		log.Println(" ... ERROR: Missing flow mapping for",
 			idAttr.Value, " -> ", location)
-		// TODO: generate UUID and mapping!
 		return
 	}
 	idAttr.Value = mapping.NewID
@@ -145,4 +164,29 @@ func (m *FlowMap) MapFlow(e *etree.Element) {
 		uriAttr.Value = "../flows/" + mapping.NewID + ".xml"
 	}
 	m.used[key] = true
+}
+
+// unmapFlow assigns back the old flow UUID to exchanges and LCIA factors
+// that have a new flow UUID.
+func (m *FlowMap) unmapFlow(e *etree.Element) {
+	flowRef := e.FindElement("./referenceToFlowDataSet")
+	if flowRef == nil {
+		log.Println(" ... ERROR: no flow reference found")
+		return
+	}
+	idAttr := flowRef.SelectAttr("refObjectId")
+	if idAttr == nil {
+		log.Println(" ... ERROR: no flow reference found")
+		return
+	}
+	unmapping := m.unmappings[idAttr.Value]
+	if unmapping == nil {
+		return
+	}
+	idAttr.Value = unmapping.OldID
+	uriAttr := flowRef.SelectAttr("uri")
+	if uriAttr != nil {
+		uriAttr.Value = "../flows/" + unmapping.OldID + ".xml"
+	}
+	m.used[unmapping.NewID] = true
 }
