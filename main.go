@@ -12,8 +12,6 @@ func main() {
 		NewFlowMapper(args).Run()
 	case "merge":
 		NewMerger(args).Run()
-	case "calc":
-		NewCalculator(args).Run()
 	default:
 		log.Fatalln("ERROR: Unknown command", args.Command)
 	}
