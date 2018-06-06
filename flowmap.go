@@ -196,5 +196,12 @@ func (m *FlowMap) unmapFlow(e *etree.Element) {
 	}
 	locElem.SetText(unmapping.Location)
 
+	nameElem := e.FindElement("./referenceToFlowDataSet/shortDescription")
+	if nameElem != nil {
+		name := nameElem.Text()
+		name = strings.TrimSuffix(name, " - "+unmapping.Location)
+		nameElem.SetText(name)
+	}
+
 	m.used[unmapping.NewID] = true
 }
