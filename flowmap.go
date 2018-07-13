@@ -10,7 +10,9 @@ import (
 	"github.com/msrocka/ilcd"
 )
 
-func getKey(location, uuid string) string {
+// MapKey creates a key <location-code>/<flow uuid>. The location code is
+// optional and thus can be an empty string.
+func MapKey(location, uuid string) string {
 	key := strings.TrimSpace(location) + "/" + strings.TrimSpace(uuid)
 	return strings.ToLower(key)
 }
@@ -20,10 +22,6 @@ type FlowMapEntry struct {
 	Location string
 	OldID    string
 	NewID    string
-}
-
-func (e *FlowMapEntry) mapKey() string {
-	return getKey(e.Location, e.OldID)
 }
 
 // FlowMap contains the flow mappings.
@@ -60,8 +58,16 @@ func ReadFlowMap(file string) *FlowMap {
 		if i == 0 {
 			continue
 		}
-		e := FlowMapEntry{OldID: row[0], Location: row[1], NewID: row[2]}
-		fm.mappings[e.mapKey()] = &e
+		if len(row) < 3 {
+			log.Println("WARNING: invalid flow mapping in row", i)
+			continue
+		}
+		e := FlowMapEntry{
+			OldID:    strings.TrimSpace(row[0]),
+			Location: strings.TrimSpace(row[1]),
+			NewID:    strings.TrimSpace(row[2])}
+		key := MapKey(e.Location, e.OldID)
+		fm.mappings[key] = &e
 		fm.unmappings[e.NewID] = &e
 	}
 	log.Println(" ... read", len(fm.mappings), "mappings")
@@ -108,7 +114,7 @@ func (m *FlowMap) forMethod(data []byte, fn func(e *etree.Element)) ([]byte, err
 	factors := doc.FindElements("./LCIAMethodDataSet/characterisationFactors/factor")
 	log.Println(" ... check", len(factors), "factors")
 	for _, factor := range factors {
-		m.mapFlow(factor)
+		fn(factor)
 	}
 	return doc.WriteToBytes()
 }
@@ -133,29 +139,22 @@ func (m *FlowMap) forProcess(data []byte, fn func(e *etree.Element)) ([]byte, er
 // mapFlow assigns the new flow UUIDs from the mapping to exchanges or LCIA
 // factors with a matching pair of old flow UUID and location.
 func (m *FlowMap) mapFlow(e *etree.Element) {
-	locElem := e.FindElement("./location")
-	if locElem == nil {
-		return
-	}
-	location := strings.TrimSpace(locElem.Text())
-	if location == "" {
-		return
-	}
 	flowRef := e.FindElement("./referenceToFlowDataSet")
 	if flowRef == nil {
-		log.Println(" ... ERROR: no flow reference found")
 		return
 	}
 	idAttr := flowRef.SelectAttr("refObjectId")
 	if idAttr == nil {
-		log.Println(" ... ERROR: no flow reference found")
 		return
 	}
-	key := getKey(location, idAttr.Value)
+	location := ""
+	locElem := e.FindElement("./location")
+	if locElem != nil {
+		location = strings.TrimSpace(locElem.Text())
+	}
+	key := MapKey(location, idAttr.Value)
 	mapping := m.mappings[key]
 	if mapping == nil {
-		log.Println(" ... ERROR: Missing flow mapping for",
-			idAttr.Value, " -> ", location)
 		return
 	}
 	idAttr.Value = mapping.NewID
