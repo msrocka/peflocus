@@ -52,7 +52,7 @@ func (m *FlowMapper) doIt(sourcePath, targetPath string) {
 	defer writer.Close()
 
 	// map the flows in the data sets
-	flowPrefix := ""
+	flowFolder := ""
 	reader.Map(writer, func(zipFile *ilcd.ZipFile) (string, []byte) {
 		path := zipFile.Path()
 		data, err := zipFile.Read()
@@ -60,8 +60,8 @@ func (m *FlowMapper) doIt(sourcePath, targetPath string) {
 			log.Println("ERROR: Failed to read entry", path, err)
 			return "", nil
 		}
-		if flowPrefix == "" && ilcd.IsFlowPath(path) {
-			flowPrefix = strings.Split(path, "flows")[0] + "flows/"
+		if flowFolder == "" && ilcd.IsFlowPath(path) {
+			flowFolder = strings.Split(path, "flows")[0] + "flows/"
 		}
 		converted, err := m.flowMap.MapFlows(path, data)
 		if err != nil {
@@ -71,12 +71,13 @@ func (m *FlowMapper) doIt(sourcePath, targetPath string) {
 		return path, converted
 	})
 
-	gen := FlowGen{
-		flowMap: m.flowMap,
-		prefix:  flowPrefix,
-		reader:  reader,
-		writer:  writer}
-	gen.Generate(true)
+	gen := FlowGenerator{
+		flowMap:   m.flowMap,
+		folder:    flowFolder,
+		reader:    reader,
+		writer:    writer,
+		forMapped: true}
+	gen.Generate()
 
 	m.flowMap.ResetStats()
 }

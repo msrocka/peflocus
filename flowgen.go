@@ -9,46 +9,49 @@ import (
 	"github.com/msrocka/ilcd"
 )
 
-// FlowGen generates the new flow data sets after a mapping.
-type FlowGen struct {
-	prefix  string
-	reader  *ilcd.ZipReader
-	writer  *ilcd.ZipWriter
+// FlowGenerator generates the new flow data sets after a mapping / unmapping.
+type FlowGenerator struct {
+	// the flow folder under which the generated flow data sets should be
+	// stored.
+	folder string
+
+	// the zip reader from where this generator reads the original data
+	reader *ilcd.ZipReader
+
+	// the zip writer where this generator generates the new flows.
+	writer *ilcd.ZipWriter
+
+	// the flow map which the generator uses
 	flowMap *FlowMap
+
+	// indicates whether this generator should generate the mapped or unmapped flows.
+	forMapped bool
+}
+
+type genFlowInfo struct {
+	sourceID string
+	targetID string
+	location string
 }
 
 // Generate creates the mapped flow in the target package.
-func (gen *FlowGen) Generate(forMapped bool) {
+func (gen *FlowGenerator) Generate() {
 	log.Println("INFO: Generate new flows")
-	generated := 0
+	generated := make(map[string]bool)
+	for usedKey := range gen.flowMap.used {
 
-	for key := range gen.flowMap.used {
-
-		var mapEntry *FlowMapEntry
-		if forMapped {
-			mapEntry = gen.flowMap.mappings[key]
-		} else {
-			mapEntry = gen.flowMap.unmappings[key]
+		genInfo := gen.genInfo(usedKey)
+		if genInfo == nil {
+			log.Println(" ... WARNING: did not find a mapping for", usedKey)
+			continue
 		}
-		if mapEntry == nil {
-			panic("This should not happen ?" + key)
+		if generated[genInfo.targetID] {
+			continue
 		}
 
-		var existingID string
-		var genID string
-		location := ""
-		if forMapped {
-			existingID = mapEntry.OldID
-			genID = mapEntry.NewID
-			location = mapEntry.Location
-		} else {
-			existingID = mapEntry.NewID
-			genID = mapEntry.OldID
-		}
-
-		flowEntry := gen.reader.FindDataSet(ilcd.FlowDataSet, existingID)
+		flowEntry := gen.reader.FindDataSet(ilcd.FlowDataSet, genInfo.sourceID)
 		if flowEntry == nil {
-			log.Println(" ... ERROR: flow", existingID,
+			log.Println(" ... ERROR: flow", genInfo.sourceID,
 				"mapped and used but could not find it in package")
 			continue
 		}
@@ -58,28 +61,53 @@ func (gen *FlowGen) Generate(forMapped bool) {
 			continue
 		}
 
-		data, err = gen.doIt(genID, location, data)
+		data, err = gen.doIt(genInfo, data)
 		if err != nil {
-			log.Println(" ... ERROR: Failed to create flow", genID,
-				"from", existingID, err)
+			log.Println(" ... ERROR: Failed to create flow", genInfo.targetID,
+				"from", genInfo.sourceID, err)
 			continue
 		}
 
-		newEntry := gen.prefix + genID + ".xml"
+		newEntry := gen.folder + genInfo.targetID + ".xml"
 		if err = gen.writer.Write(newEntry, data); err != nil {
 			log.Println(" ... ERROR: Failed to write new flow", newEntry, err)
 			continue
 		}
+		generated[genInfo.targetID] = true
 
-		generated++
 	}
-	log.Println(" ... generated", generated, "new flows")
+	log.Println(" ... generated", len(generated), "new flows")
+}
+
+func (gen *FlowGenerator) genInfo(usedKey string) *genFlowInfo {
+	if gen.flowMap == nil {
+		return nil
+	}
+	var entry *FlowMapEntry
+	if gen.forMapped {
+		entry = gen.flowMap.mappings[usedKey]
+	} else {
+		entry = gen.flowMap.unmappings[usedKey]
+	}
+	if entry == nil {
+		return nil
+	}
+	if gen.forMapped {
+		return &genFlowInfo{
+			sourceID: entry.OldID,
+			targetID: entry.NewID,
+			location: entry.Location}
+	}
+	return &genFlowInfo{
+		sourceID: entry.NewID,
+		targetID: entry.OldID}
+
 }
 
 // if location="" it is expected that this function runs in `unmapped` mode,
-// which will remove flow locations from the name; other wise the location code
+// which will remove flow locations from the name; otherwise the location code
 // is added to the name -> this is a quickly hack to get this done o_O
-func (gen *FlowGen) doIt(id string, location string, data []byte) ([]byte, error) {
+func (gen *FlowGenerator) doIt(genInfo *genFlowInfo, data []byte) ([]byte, error) {
 	doc := etree.NewDocument()
 	if err := doc.ReadFromBytes(data); err != nil {
 		return nil, err
@@ -88,13 +116,13 @@ func (gen *FlowGen) doIt(id string, location string, data []byte) ([]byte, error
 	if uuid == nil {
 		return nil, errors.New("No UUID element")
 	}
-	uuid.SetText(id)
+	uuid.SetText(genInfo.targetID)
 	npath := "./flowDataSet/flowInformation/dataSetInformation/name/baseName"
 	for _, elem := range doc.FindElements(npath) {
 		name := elem.Text()
-		if location != "" {
-			elem.SetText(name + " - " + location)
-		} else {
+		if gen.forMapped && genInfo.location != "" {
+			elem.SetText(name + " - " + genInfo.location)
+		} else if !gen.forMapped {
 			locIdx := strings.LastIndex(name, " - ")
 			if locIdx > 0 {
 				name = name[:locIdx]

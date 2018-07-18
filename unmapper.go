@@ -53,11 +53,11 @@ func (u *FlowUnmapper) doIt(sourcePath, targetPath string) {
 	defer writer.Close()
 
 	// unmap the flows in the data sets
-	flowPrefix := ""
+	flowFolder := ""
 	reader.Map(writer, func(zipFile *ilcd.ZipFile) (string, []byte) {
 		path := zipFile.Path()
-		if flowPrefix == "" && ilcd.IsFlowPath(path) {
-			flowPrefix = strings.Split(path, "flows")[0] + "flows/"
+		if flowFolder == "" && ilcd.IsFlowPath(path) {
+			flowFolder = strings.Split(path, "flows")[0] + "flows/"
 		}
 		if zipFile.Type() == ilcd.FlowDataSet {
 			return "", nil // flows are filtered & written later
@@ -75,12 +75,13 @@ func (u *FlowUnmapper) doIt(sourcePath, targetPath string) {
 		return path, converted
 	})
 
-	gen := FlowGen{
-		flowMap: u.flowMap,
-		prefix:  flowPrefix,
-		reader:  reader,
-		writer:  writer}
-	gen.Generate(false)
+	gen := FlowGenerator{
+		flowMap:   u.flowMap,
+		folder:    flowFolder,
+		reader:    reader,
+		writer:    writer,
+		forMapped: false}
+	gen.Generate()
 
 	// copy the flows that were not mapped
 	reader.Map(writer, func(zipFile *ilcd.ZipFile) (string, []byte) {
@@ -102,7 +103,7 @@ func (u *FlowUnmapper) doIt(sourcePath, targetPath string) {
 			// skip unmapped flows
 			return "", nil
 		}
-		path := flowPrefix + uuid + "_" + flow.Version() + ".xml"
+		path := flowFolder + uuid + "_" + flow.Version() + ".xml"
 		return path, data
 	})
 
