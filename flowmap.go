@@ -36,6 +36,10 @@ type FlowMap struct {
 	// When running in map-mode: contains (location/OldID) -> bool
 	// When running in unmap-mode: contains NewID -> true
 	used map[string]bool
+
+	// Contains the IDs of the flows that where used but not (un)mapped. These
+	// flows should be copied into the target archive.
+	untouchedUsed map[string]bool
 }
 
 // ReadFlowMap reads the flow mappings from the given file.
@@ -51,9 +55,10 @@ func ReadFlowMap(file string) *FlowMap {
 		log.Fatalln("ERROR: Failed to read mapping file", file, err)
 	}
 	fm := FlowMap{
-		mappings:   make(map[string]*FlowMapEntry),
-		unmappings: make(map[string]*FlowMapEntry),
-		used:       make(map[string]bool)}
+		mappings:      make(map[string]*FlowMapEntry),
+		unmappings:    make(map[string]*FlowMapEntry),
+		used:          make(map[string]bool),
+		untouchedUsed: make(map[string]bool)}
 	for i, row := range rows {
 		if i == 0 {
 			continue
@@ -77,6 +82,7 @@ func ReadFlowMap(file string) *FlowMap {
 // ResetStats clears the mapping statistics
 func (m *FlowMap) ResetStats() {
 	m.used = make(map[string]bool)
+	m.untouchedUsed = make(map[string]bool)
 }
 
 // MapFlows maps the flows in the given data set if it is an LCIA method or
@@ -155,6 +161,7 @@ func (m *FlowMap) mapFlow(e *etree.Element) {
 	key := MapKey(location, idAttr.Value)
 	mapping := m.mappings[key]
 	if mapping == nil {
+		m.untouchedUsed[idAttr.Value] = true
 		return
 	}
 	idAttr.Value = mapping.NewID
@@ -180,6 +187,7 @@ func (m *FlowMap) unmapFlow(e *etree.Element) {
 	}
 	unmapping := m.unmappings[idAttr.Value]
 	if unmapping == nil {
+		m.untouchedUsed[idAttr.Value] = true
 		return
 	}
 	idAttr.Value = unmapping.OldID

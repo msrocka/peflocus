@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/xml"
 	"log"
 	"path/filepath"
 	"strings"
@@ -83,7 +82,9 @@ func (u *FlowUnmapper) doIt(sourcePath, targetPath string) {
 		forMapped: false}
 	gen.Generate()
 
-	// copy the flows that were not mapped
+	// copy the flows that were not mapped but are used
+	log.Println("INFO: Copy untouched but used flows")
+	count := 0
 	reader.Map(writer, func(zipFile *ilcd.ZipFile) (string, []byte) {
 		if zipFile.Type() != ilcd.FlowDataSet {
 			return "", nil
@@ -93,19 +94,21 @@ func (u *FlowUnmapper) doIt(sourcePath, targetPath string) {
 			log.Println("ERROR: Failed to read flow", zipFile.Path())
 			return "", nil
 		}
-		flow := &ilcd.Flow{}
-		if err = xml.Unmarshal(data, flow); err != nil {
+		flow, err := zipFile.ReadFlow()
+		if err != nil {
 			log.Println("ERROR: Failed to read flow", zipFile.Path())
 			return "", nil
 		}
 		uuid := flow.UUID()
-		if u.flowMap.used[uuid] {
-			// skip unmapped flows
+		if !u.flowMap.untouchedUsed[uuid] {
+			// skip all flows that where mapped or that are not used
 			return "", nil
 		}
 		path := flowFolder + uuid + "_" + flow.Version() + ".xml"
+		count++
 		return path, data
 	})
+	log.Println(" ... copied", count, "flows")
 
 	u.flowMap.ResetStats()
 }

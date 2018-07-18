@@ -55,13 +55,16 @@ func (m *FlowMapper) doIt(sourcePath, targetPath string) {
 	flowFolder := ""
 	reader.Map(writer, func(zipFile *ilcd.ZipFile) (string, []byte) {
 		path := zipFile.Path()
+		if flowFolder == "" && ilcd.IsFlowPath(path) {
+			flowFolder = strings.Split(path, "flows")[0] + "flows/"
+		}
+		if zipFile.Type() == ilcd.FlowDataSet {
+			return "", nil // flows are filtered & written later
+		}
 		data, err := zipFile.Read()
 		if err != nil {
 			log.Println("ERROR: Failed to read entry", path, err)
 			return "", nil
-		}
-		if flowFolder == "" && ilcd.IsFlowPath(path) {
-			flowFolder = strings.Split(path, "flows")[0] + "flows/"
 		}
 		converted, err := m.flowMap.MapFlows(path, data)
 		if err != nil {
@@ -78,6 +81,34 @@ func (m *FlowMapper) doIt(sourcePath, targetPath string) {
 		writer:    writer,
 		forMapped: true}
 	gen.Generate()
+
+	// copy the flows that were not mapped but are used
+	log.Println("INFO: Copy untouched but used flows")
+	count := 0
+	reader.Map(writer, func(zipFile *ilcd.ZipFile) (string, []byte) {
+		if zipFile.Type() != ilcd.FlowDataSet {
+			return "", nil
+		}
+		data, err := zipFile.Read()
+		if err != nil {
+			log.Println("ERROR: Failed to read flow", zipFile.Path())
+			return "", nil
+		}
+		flow, err := zipFile.ReadFlow()
+		if err != nil {
+			log.Println("ERROR: Failed to read flow", zipFile.Path())
+			return "", nil
+		}
+		uuid := flow.UUID()
+		if !m.flowMap.untouchedUsed[uuid] {
+			// skip all flows that where mapped or that are not used
+			return "", nil
+		}
+		path := flowFolder + uuid + "_" + flow.Version() + ".xml"
+		count++
+		return path, data
+	})
+	log.Println(" ... copied", count, "flows")
 
 	m.flowMap.ResetStats()
 }
