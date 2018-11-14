@@ -96,3 +96,22 @@ name, XML data sets by its data set type and UUID. Thus, if there is a data set
 with the same type and UUID in multiple packages (maybe in different versions!)
 it will only be added once in the merged package. With the `-skipdocs 1` option,
 external documents will not be added to the result package.
+
+## The `model-check` command
+The `model-check` command checks the life cycle models of the zip files in the
+working directory (which is the `zips` folder by default; zips that start with
+`peflocus_` are ignored; see above). It checks things like if there is a
+reference process in the model or if all connections are valid regarding the
+inputs and outputs of the processes. The results are printed to the console and
+can be piped into a text file, e.g.:
+
+```
+peflocus model-check -wordir zips > zips/model_report.txt
+```
+
+For each model, the model graph using the model internal IDs for the processes
+is also printed out in the [dot format](https://en.wikipedia.org/wiki/DOT_(graph_description_language))
+which can be rendered with [Graphviz](http://www.webgraphviz.com/) (the pink
+node is the reference process):
+
+![](./graph_example.png)

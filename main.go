@@ -14,6 +14,8 @@ func main() {
 		NewFlowUnmapper(args).Run()
 	case "merge":
 		NewMerger(args).Run()
+	case "model-check":
+		modelCheck(args)
 	default:
 		log.Fatalln("ERROR: Unknown command", args.Command)
 	}
