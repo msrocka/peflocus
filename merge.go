@@ -134,6 +134,8 @@ func (m *Merger) init(t ilcd.DataSetType) ilcd.DataSet {
 		return &ilcd.Process{}
 	case ilcd.MethodDataSet:
 		return &ilcd.Method{}
+	case ilcd.ModelDataSet:
+		return &ilcd.Model{}
 	default:
 		return nil
 	}
